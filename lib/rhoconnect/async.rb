@@ -1,17 +1,17 @@
-require 'rack/fiber_pool'
-require 'async-rack'
-require 'eventmachine'
+#require 'rack/fiber_pool'
+#require 'async-rack'
+#require 'eventmachine'
 
 module Rhoconnect
   module Synchrony
     def setup_sessions(builder)
       options = {}
-      if settings.respond_to?(:fiberpool_size)
-        options[:size] = settings.fiberpool_size
-      end
+      #if settings.respond_to?(:fiberpool_size)
+      #  options[:size] = settings.fiberpool_size
+      #end
       options[:rescue_exception] = handle_exception
-      builder.use Rack::FiberPool, options unless test?
-      builder.use Rhoconnect::Middleware::Async, options
+      #builder.use Rack::FiberPool, options unless test?
+      #builder.use Rhoconnect::Middleware::Async, options
       super
     end
 
