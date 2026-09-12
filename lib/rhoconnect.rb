@@ -1,5 +1,6 @@
 require 'redis'
 require 'cgi'
+require 'uri'
 require 'json'
 require 'base64'
 require 'securerandom'
@@ -318,6 +319,18 @@ _MIGRATE_TO_NEW_RHOCONNECT
     if first_letter_in_uppercase
       lower_case_and_underscored_word.to_s.gsub(/\/(.?)/) { "::#{$1.upcase}" }.gsub(/(?:^|_)(.)/) { $1.upcase }
     end
+  end
+
+  # Escapes a path for use in a URL or a zip entry name.
+  # Replaces URI.escape, which was removed in Ruby 3.0. RFC2396_Parser#escape
+  # keeps the old default behaviour - unsafe characters are percent-encoded,
+  # but '/', ':' and the other reserved characters are left alone - and it is
+  # available on every Ruby this gem supports (URI::RFC2396_PARSER is 3.4+ only,
+  # and URI::DEFAULT_PARSER#escape warns as obsolete on 3.4).
+  URI_ESCAPE_PARSER = URI::RFC2396_Parser.new unless defined? URI_ESCAPE_PARSER
+
+  def uri_escape(str)
+    URI_ESCAPE_PARSER.escape(str)
   end
 
   def expire_bulk_data(username, partition = :user)

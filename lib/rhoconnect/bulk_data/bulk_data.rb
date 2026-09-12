@@ -42,7 +42,7 @@ module Rhoconnect
     
     def url
       zippath = dbfile.gsub(Regexp.compile(Regexp.escape(Rhoconnect.data_directory)), "")
-      URI.escape(File.join('/data',zippath))
+      Rhoconnect.uri_escape(File.join('/data',zippath))
     end
     
     def dbfiles_exist?

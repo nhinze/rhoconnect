@@ -196,7 +196,7 @@ module Rhoconnect
 
     def self.compress(archive,file)
       Zip::File.open(archive, 'w') do |zipfile|
-        zipfile.add(URI.escape(File.basename(file)),file)
+        zipfile.add(Rhoconnect.uri_escape(File.basename(file)),file)
       end
     end
 
