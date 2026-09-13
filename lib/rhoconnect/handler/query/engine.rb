@@ -68,6 +68,9 @@ module Rhoconnect
             # store sync,operation exceptions to be sent to all clients for this source/user
             log "Model raised query exception: #{e}"
             log e.backtrace.join("\n")
+            # Reports only when the app bundles sentry-ruby. The job still
+            # succeeds after this, so nothing else surfaces the crash.
+            ::Sentry.capture_exception(e) if defined?(::Sentry)
             docobj.lock(errordoc) do
               docobj.put_data(errordoc,{"query-error"=>{'message'=>e.message}},true)
             end

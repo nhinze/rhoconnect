@@ -57,6 +57,8 @@ module Rhoconnect
             end
           rescue Exception => e
             log "Error in pass through method: #{e.message}"
+            # Reports only when the app bundles sentry-ruby.
+            ::Sentry.capture_exception(e) if defined?(::Sentry)
             res['error'] = {'message' => e.message } 
           end
           auth_method('logoff')
@@ -206,6 +208,9 @@ module Rhoconnect
                 rescue Exception => e
                   log "Model raised #{operation} exception: #{e}"
                   log e.backtrace.join("\n")
+                  # Reports only when the app bundles sentry-ruby. The error is
+                  # handed back to the client below and nothing else records it.
+                  ::Sentry.capture_exception(e) if defined?(::Sentry)
                   continue_loop = false
                   modified_recs.each do |modified_rec|
                     modified_rec[:errors] ||= {}

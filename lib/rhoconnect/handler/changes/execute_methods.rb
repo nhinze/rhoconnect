@@ -29,6 +29,9 @@ module Rhoconnect
             throw :halt, [500, "Server error while processing client data"]
           rescue Exception => e
             log e.message + e.backtrace.join("\n")
+            # Reports only when the app bundles sentry-ruby; this halt
+            # otherwise leaves no trace beyond the log above.
+            ::Sentry.capture_exception(e) if defined?(::Sentry)
             throw :halt, [500, "Internal server error"]
           end
 
@@ -44,6 +47,9 @@ module Rhoconnect
             throw :halt, [500, "Server error while processing client data"]
           rescue Exception => e
             log e.message + e.backtrace.join("\n")
+            # Reports only when the app bundles sentry-ruby; this halt
+            # otherwise leaves no trace beyond the log above.
+            ::Sentry.capture_exception(e) if defined?(::Sentry)
             throw :halt, [500, "Internal server error"]
           end
 
@@ -79,6 +85,9 @@ module Rhoconnect
             throw :halt, [500, "Server error while processing client data"]
           rescue Exception => e
             log e.message + e.backtrace.join("\n")
+            # Reports only when the app bundles sentry-ruby; this halt
+            # otherwise leaves no trace beyond the log above.
+            ::Sentry.capture_exception(e) if defined?(::Sentry)
             throw :halt, [500, "Internal server error"]
           end
         end

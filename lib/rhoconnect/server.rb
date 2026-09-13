@@ -111,6 +111,9 @@ module Rhoconnect
           throw :halt, [ae.error_code, ae.message]
         rescue Exception => e
           log e.message + e.backtrace.join("\n")
+          # Reports only when the app bundles sentry-ruby; this halt otherwise
+          # leaves no trace beyond the log above.
+          ::Sentry.capture_exception(e) if defined?(::Sentry)
           throw :halt, [500, e.message]
         end
       end
