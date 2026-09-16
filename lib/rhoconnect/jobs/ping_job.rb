@@ -35,9 +35,16 @@ module Rhoconnect
         client_objects = []
         clients.members.each do |client_id|
             client_obj = Client.load(client_id,{:source_name => '*'})
-            client_objects << client_obj
+            client_objects << client_obj unless client_obj.nil?
         end
-        sorted_clients = client_objects.sort! { |a,b|  a.last_sync <=> b.last_sync }
+        # last_sync is a :datetime, and StoreOrm loads an unset one as nil rather
+        # than a zero date -- it is only ever written by the changes/query/search
+        # runners, so a client that registered but never completed one of those
+        # has nil. `nil <=> DateTime` returns nil, which made sort! raise
+        # ArgumentError and kill the whole ping before any device was reached.
+        # Never-synced clients sort first so reverse_each below still visits the
+        # most recently synced client first, which is what wins the dedupe.
+        sorted_clients = client_objects.sort_by { |c| c.last_sync || ::DateTime.new(0) }
         sorted_clients.reverse_each do |client|
           params.merge!(
             'device_port' => client.device_port,

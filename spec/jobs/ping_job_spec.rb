@@ -150,6 +150,31 @@ describe 'PingJob' do
     expect {PingJob.perform(params)}.not_to raise_error
   end
 
+  it 'should ping every device when one client has never synced' do
+    params = {'user_id' => @u.id,
+              'api_token' => @api_token,
+              'sources' => [@s.name],
+              'message' => 'hello world',
+              'vibrate' => '5',
+              'badge' => '5',
+              'sound' => 'hello.mp3',
+              'phone_id' => nil,
+              'device_app_id' => nil,
+              'device_app_version' => nil}
+    # The multi-client examples above leave last_sync unset on every client, and
+    # `nil <=> nil` is 0, so none of them covered the mixed case that broke
+    # sorting in production: a client that has synced next to one that
+    # registered and never did, where `nil <=> DateTime` returns nil and the
+    # sort raises before any device is reached.
+    @c.last_sync = Time.now
+    @c_fields.delete(:id)
+    @c1 = Client.create(@c_fields.merge(:device_pin => 'neversynced'), {:source_name => @s_fields[:name]})
+    expect(@c1.last_sync).to be_nil
+
+    expect(Apple).to receive(:ping).twice
+    expect {PingJob.perform(params)}.not_to raise_error
+  end
+
   xit 'should ping two different users from two different devices - Apple and GCM' do
     params = {'user_id' => [@u.id, @u1.id],
               'api_token' => @api_token,
