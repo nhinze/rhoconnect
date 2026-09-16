@@ -76,33 +76,25 @@ describe "Ping Android FCM" do
                                             )
   end
 
+  # These build the message for real rather than stubbing Message.new. Stubbing
+  # the constructor is what let google-api-fcm's two Ruby 3 incompatibilities
+  # ship unnoticed: every ping failed in the field with "wrong number of
+  # arguments (given 1, expected 0)" while this suite stayed green.
   it "should compute fcm_message" do
-    expect(Google::Apis::Messages::Message).to receive(:new) do |options|
-      expect(options[:token]).to eq(@c.device_pin)
-      expect(options[:android]["priority"]).to eq("high")
-      expect(options[:android]["restricted_package_name"]).to eq(Rhoconnect.settings[:package_name])
-      expect(options[:android]["data"]["do_sync"]).to eq(@s.name)
-      expect(options[:android]["data"]["alert"]).to eq("hello world")
-      expect(options[:android]["data"]["vibrate"]).to eq("5")
-      expect(options[:android]["data"]["sound"]).to eq("hello.mp3")
-      expect(options[:android]["notification"]["body"]).to eq("hello world")
-    end
+    message = Fcm.fcm_message(Rhoconnect.settings[:package_name], @params)
+    android = message.message_object.android
 
-    Fcm.fcm_message(Rhoconnect.settings[:package_name], @params)
+    expect(message.message_object.token).to eq(@c.device_pin)
+    expect(android["priority"]).to eq("high")
+    expect(android["restricted_package_name"]).to eq(Rhoconnect.settings[:package_name])
+    expect(android["data"]["do_sync"]).to eq(@s.name)
+    expect(android["data"]["alert"]).to eq("hello world")
+    expect(android["data"]["vibrate"]).to eq("5")
+    expect(android["data"]["sound"]).to eq("hello.mp3")
+    expect(android["notification"]["body"]).to eq("hello world")
   end
 
   it "should trim empty or nil params from fcm_message" do
-    expect(Google::Apis::Messages::Message).to receive(:new) do |options|
-      expect(options[:token]).to eq(@c.device_pin)
-      expect(options[:android]["priority"]).to eq("high")
-      expect(options[:android]["restricted_package_name"]).to eq(Rhoconnect.settings[:package_name])
-      expect(options[:android]["data"]["do_sync"]).to eq('')
-      expect(options[:android]["data"]["alert"]).to eq(nil)
-      expect(options[:android]["data"]["vibrate"]).to eq("5")
-      expect(options[:android]["data"]["sound"]).to eq("hello.mp3")
-      expect(options[:android]["notification"]["body"]).to eq(nil)
-    end
-
     params = {
         "device_pin" => @c.device_pin,
         "sources" => [],
@@ -111,6 +103,30 @@ describe "Ping Android FCM" do
         "sound" => 'hello.mp3'
     }
 
-    Fcm.fcm_message(Rhoconnect.settings[:package_name], params)
+    message = Fcm.fcm_message(Rhoconnect.settings[:package_name], params)
+    android = message.message_object.android
+
+    expect(message.message_object.token).to eq(@c.device_pin)
+    expect(android["priority"]).to eq("high")
+    expect(android["restricted_package_name"]).to eq(Rhoconnect.settings[:package_name])
+    expect(android["data"]["do_sync"]).to eq('')
+    expect(android["data"]["alert"]).to eq(nil)
+    expect(android["data"]["vibrate"]).to eq("5")
+    expect(android["data"]["sound"]).to eq("hello.mp3")
+    # An empty message leaves nothing to display, so no notification is sent.
+    expect(android).not_to have_key("notification")
+  end
+
+  # The second incompatibility: the representation declares `hash :apns`,
+  # `hash :webpush` and `hash :fcm_options`, so a MessageObject built without
+  # them renders nil and dies in representable. Only serializing catches it.
+  it "should render fcm_message as FCM v1 JSON" do
+    message = Fcm.fcm_message(Rhoconnect.settings[:package_name], @params)
+    json = JSON.parse(Google::Apis::Messages::Message::Representation.new(message).to_json)
+
+    expect(json["message"]["token"]).to eq(@c.device_pin)
+    expect(json["message"]["topic"]).to be_nil
+    expect(json["message"]["android"]["restricted_package_name"]).to eq(Rhoconnect.settings[:package_name])
+    expect(json["message"]["android"]["data"]["do_sync"]).to eq(@s.name)
   end
 end

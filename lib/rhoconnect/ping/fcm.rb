@@ -59,16 +59,39 @@ module Rhoconnect
       android['priority'] = 'high'
       android['restricted_package_name'] = package_name
       android['data'] = data
-      android['notification'] = {}
-      # android['notification']['title'] = 'Test message'
-      android['notification']['body'] = params['message']
+      # Only attach a notification when there is something to display. params
+      # has already had its nil and empty values rejected above, so a ping with
+      # no message would otherwise send `notification: {'body' => nil}`, and the
+      # tray notification it asks for cannot be shown regardless.
+      if params['message']
+        android['notification'] = {}
+        # android['notification']['title'] = 'Test message'
+        android['notification']['body'] = params['message']
+      end
 
-      message = Google::Apis::Messages::Message.new(
+      # google-api-fcm 0.1.9 is the gem's newest release and is not Ruby 3
+      # compatible in two places, both of which have to be stepped around here.
+      #
+      # Message.new(token:, android:) reaches `MessageObject.new(hash)` at
+      # classes.rb:56 -- a positional Hash into `def initialize(**args)`, which
+      # Ruby 2 converted to keywords and Ruby 3 rejects with "wrong number of
+      # arguments (given 1, expected 0)". Passing :message_object avoids it:
+      # MessageObject#update! only calls initialize_build when that key is
+      # absent, and constructing the MessageObject here passes real keywords.
+      #
+      # The representation then declares `hash :apns`, `hash :webpush` and
+      # `hash :fcm_options` while MessageObject assigns them only when the key
+      # is supplied, so omitting them renders nil and dies inside representable
+      # with "undefined method 'each' for nil". Empty hashes serialize away.
+      message_object = Google::Apis::Messages::MessageObject.new(
         token: params['device_pin'].to_s,
-        android: android
+        android: android,
+        apns: {},
+        webpush: {},
+        fcm_options: {}
       )
-      
-      message
+
+      Google::Apis::Messages::Message.new(message_object: message_object)
     end
   end
 end
