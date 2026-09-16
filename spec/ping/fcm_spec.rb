@@ -43,6 +43,40 @@ describe "Ping Android FCM" do
     expect(lambda { Fcm.ping(@params) }).to raise_error(RestClient::Exception)
   end
 
+  # google-api-client renders every 401 as the bare word "Unauthorized":
+  # api_command.rb's check_status parses the error body only `when 400,
+  # 402...500`, so 401 never reaches the parse. PingJob joins these messages
+  # into the one error that reaches the resque log, so without the body the log
+  # cannot distinguish THIRD_PARTY_AUTH_ERROR -- a missing or invalid APNs key
+  # on the Firebase project, which fails Apple tokens while Android succeeds --
+  # from service-account credentials that are simply wrong.
+  it "should keep the FCM errorCode when FCM answers 401" do
+    body = {
+      'error' => {
+        'code' => 401,
+        'message' => 'Auth error from APNS or Web Push Service',
+        'status' => 'UNAUTHENTICATED',
+        'details' => [{
+          '@type' => 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+          'errorCode' => 'THIRD_PARTY_AUTH_ERROR'
+        }]
+      }
+    }.to_json
+    stub_request(:post, "https://fcm.googleapis.com/v1/projects/valid_project_id/messages:send")
+      .to_return(:status => 401, :body => body, :headers => { 'Content-Type' => 'application/json' })
+
+    expect { Fcm.ping(@params) }.to raise_error(Fcm::FCMPingError, /THIRD_PARTY_AUTH_ERROR/)
+  end
+
+  it "should report the status code and class for an FCM 401" do
+    stub_request(:post, "https://fcm.googleapis.com/v1/projects/valid_project_id/messages:send")
+      .to_return(:status => 401, :body => '')
+
+    expect { Fcm.ping(@params) }.to raise_error(
+      Fcm::FCMPingError, 'FCM ping failed: AuthorizationError 401 Unauthorized'
+    )
+  end
+
   xit "should ping fcm with 200 error message" do
     allow( Google::Auth).to receive(:get_application_default)
 

@@ -18,19 +18,36 @@ module Rhoconnect
         raise InvalidPackageName.new("Missing `:package_name:` option in settings/settings.yml") unless package_name
         
         send_ping_to_device(fcm_project_id, package_name, params)
-      rescue InvalidProjectId => error
-        log error
-        log error.backtrace.join("\n")
-        raise error
-      rescue InvalidPackageName => error
-        log error
-        log error.backtrace.join("\n")
-        raise error
       rescue Exception => error
-        log error
+        log describe(error)
         log error.backtrace.join("\n")
-        raise error
+        # Re-raise with the reason attached, because the message alone does not
+        # carry one. PingJob collects what each client's ping raised and joins
+        # the messages into the single error that reaches the resque log, and
+        # google-api-client has already discarded everything FCM said about a
+        # 401 by then: api_command.rb's check_status parses the error body only
+        # `when 400, 402...500`, so 401 skips the parse and http_command.rb
+        # falls back to the bare string "Unauthorized". That makes an iOS-only
+        # THIRD_PARTY_AUTH_ERROR -- a missing or invalid APNs key on the
+        # Firebase project, which fails Apple tokens while Android keeps
+        # working -- indistinguishable from broken service-account credentials.
+        #
+        # Only Google's errors are rewrapped. InvalidProjectId,
+        # InvalidPackageName and transport errors already say what went wrong,
+        # and callers match on their classes.
+        raise error.is_a?(Google::Apis::Error) ? FCMPingError.new(describe(error)) : error
       end
+    end
+
+    # The FCM errorCode is in the response body rather than the message, and
+    # Google::Apis::Error keeps both alongside the status code.
+    def self.describe(error)
+      return error.message unless error.is_a?(Google::Apis::Error)
+
+      described = "FCM ping failed: #{error.class.name.split('::').last} " \
+                  "#{error.status_code} #{error.message}"
+      described << " body=#{error.body}" unless error.body.to_s.empty?
+      described
     end
 
     def self.send_ping_to_device(project_id,package_name,params)
