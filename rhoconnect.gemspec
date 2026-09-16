@@ -54,4 +54,9 @@ Gem::Specification.new do |s|
   s.add_dependency('signet', '~> 0.12.0')
   s.add_dependency('google-api-client', '~> 0.44.2')
   s.add_dependency('google-api-fcm', '~> 0.1.7')
+  # APNs: the provider API is HTTP/2 only, which net/http cannot speak, and the
+  # provider token is an ES256 JWT. jwt already arrived transitively via signet;
+  # Apple#ping requires it directly, so declare it.
+  s.add_dependency('jwt', '>= 2.1', '< 3.0')
+  s.add_dependency('net-http2', '~> 0.19')
 end
